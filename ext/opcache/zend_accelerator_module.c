@@ -309,6 +309,9 @@ ZEND_INI_BEGIN()
 	STD_PHP_INI_ENTRY("opcache.file_cache"                    , NULL  , PHP_INI_SYSTEM, OnUpdateFileCache, accel_directives.file_cache,                    zend_accel_globals, accel_globals)
 	STD_PHP_INI_ENTRY("opcache.file_cache_only"               , "0"   , PHP_INI_SYSTEM, OnUpdateBool,	   accel_directives.file_cache_only,               zend_accel_globals, accel_globals)
 	STD_PHP_INI_ENTRY("opcache.file_cache_consistency_checks" , "1"   , PHP_INI_SYSTEM, OnUpdateBool,	   accel_directives.file_cache_consistency_checks, zend_accel_globals, accel_globals)
+#elif HAVE_OPCACHE_REDIS_CACHE
+	STD_PHP_INI_ENTRY("opcache.redis_cache"                    , NULL  , PHP_INI_SYSTEM, OnUpdateString, accel_directives.redis_cache,                    zend_accel_globals, accel_globals)
+	STD_PHP_INI_ENTRY("opcache.redis_cache_only"               , "0"   , PHP_INI_SYSTEM, OnUpdateBool,	   accel_directives.redis_cache_only,               zend_accel_globals, accel_globals)
 #endif
 #if ENABLE_FILE_CACHE_FALLBACK
 	STD_PHP_INI_ENTRY("opcache.file_cache_fallback"           , "1"   , PHP_INI_SYSTEM, OnUpdateBool,	   accel_directives.file_cache_fallback,           zend_accel_globals, accel_globals)
@@ -401,6 +404,7 @@ void zend_accel_override_file_functions(void)
 			zend_accel_error(ACCEL_LOG_WARNING, "file_override_enabled has no effect when file_cache_only is set");
 			return;
 		}
+//TODO: redis- implement this method
 #endif
 		/* override file_exists */
 		if ((old_function = zend_hash_str_find_ptr(CG(function_table), "file_exists", sizeof("file_exists")-1)) != NULL) {
@@ -434,6 +438,8 @@ void zend_accel_info(ZEND_MODULE_INFO_FUNC_ARGS)
 	if (ZCG(enabled) && accel_startup_ok &&
 #ifdef HAVE_OPCACHE_FILE_CACHE
 		((ZCG(counted) || ZCSG(accelerator_enabled)) || ZCG(accel_directives).file_cache_only)
+#elif HAVE_OPCACHE_REDIS_CACHE
+		((ZCG(counted) || ZCSG(accelerator_enabled)) || ZCG(accel_directives).redis_cache_only)
 #else
 		(ZCG(counted) || ZCSG(accelerator_enabled))
 #endif
@@ -459,6 +465,24 @@ void zend_accel_info(ZEND_MODULE_INFO_FUNC_ARGS)
 		php_info_print_table_row(2, "File Cache", "Disabled");
 	}
 	if (ZCG(accel_directives).file_cache_only) {
+		if (!accel_startup_ok || zps_api_failure_reason) {
+			php_info_print_table_row(2, "Startup Failed", zps_api_failure_reason);
+		} else {
+			php_info_print_table_row(2, "Startup", "OK");
+		}
+	} else
+#elif HAVE_OPCACHE_REDIS_CACHE
+	if (!ZCG(accel_directives).redis_cache_only) {
+		php_info_print_table_row(2, "SHM Cache", "Enabled");
+	} else {
+		php_info_print_table_row(2, "SHM Cache", "Disabled");
+	}
+	if (ZCG(accel_directives).redis_cache) {
+		php_info_print_table_row(2, "Redis Cache", "Enabled");
+	} else {
+		php_info_print_table_row(2, "Redis Cache", "Disabled");
+	}
+	if (ZCG(accel_directives).redis_cache_only) {
 		if (!accel_startup_ok || zps_api_failure_reason) {
 			php_info_print_table_row(2, "Startup Failed", zps_api_failure_reason);
 		} else {
@@ -611,6 +635,14 @@ static ZEND_FUNCTION(opcache_get_status)
 		add_assoc_bool(return_value, "file_cache_only", 1);
 		return;
 	}
+#elif HAVE_OPCACHE_REDIS_CACHE
+	if (ZCG(accel_directives).redis_cache) {
+		add_assoc_string(return_value, "redis_cache", ZCG(accel_directives).redis_cache);
+	}
+	if (ZCG(accel_directives).redis_cache_only) {
+		add_assoc_bool(return_value, "redis_cache_only", 1);
+		return;
+	}
 #endif
 
 	add_assoc_bool(return_value, "cache_full", ZSMMG(memory_exhausted));
@@ -721,6 +753,9 @@ static ZEND_FUNCTION(opcache_get_configuration)
 	add_assoc_string(&directives, "opcache.file_cache",                    ZCG(accel_directives).file_cache ? ZCG(accel_directives).file_cache : "");
 	add_assoc_bool(&directives,   "opcache.file_cache_only",               ZCG(accel_directives).file_cache_only);
 	add_assoc_bool(&directives,   "opcache.file_cache_consistency_checks", ZCG(accel_directives).file_cache_consistency_checks);
+#elif HAVE_OPCACHE_REDIS_CACHE
+	add_assoc_string(&directives, "opcache.redis_cache",                    ZCG(accel_directives).redis_cache ? ZCG(accel_directives).redis_cache : "");
+	add_assoc_bool(&directives,   "opcache.redis_cache_only",               ZCG(accel_directives).redis_cache_only);
 #endif
 
 	add_assoc_zval(return_value, "directives", &directives);

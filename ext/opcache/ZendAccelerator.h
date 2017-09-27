@@ -222,6 +222,9 @@ typedef struct _zend_accel_directives {
 	char          *file_cache;
 	zend_bool      file_cache_only;
 	zend_bool      file_cache_consistency_checks;
+#elif HAVE_OPCACHE_REDIS_CACHE
+	char          *redis_cache;
+	zend_bool      redis_cache_only;
 #endif
 #if ENABLE_FILE_CACHE_FALLBACK
 	zend_bool      file_cache_fallback;

@@ -1735,8 +1735,6 @@ zend_op_array *redis_cache_compile_file(zend_file_handle *file_handle, int type)
 		return accelerator_orig_compile_file(file_handle, type);
 	}
 
-	char *filename2 = ZSTR_VAL(file_handle->opened_path);
-
 	if (!file_handle->opened_path) {
 		if (file_handle->type == ZEND_HANDLE_FILENAME &&
 		    accelerator_orig_zend_stream_open_function(file_handle->filename, file_handle) == FAILURE) {
